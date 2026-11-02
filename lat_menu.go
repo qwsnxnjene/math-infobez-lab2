@@ -109,7 +109,7 @@ func menuLAT() {
 	}
 	fmt.Println()
 	fmt.Printf("Нелинейность по LAT: 2^(n-1) - max|T| = %d - %d = %d\n", 1<<(n-1), maxT, nlLAT)
-	fmt.Printf("Нелинейность через Уолша-Адамара (из пункта 5): %d\n", nlWalsh)
+	fmt.Printf("Нелинейность через Уолша-Адамара: %d\n", nlWalsh)
 	if nlLAT != nlWalsh {
 		fmt.Println("ВНИМАНИЕ: значения не совпали!")
 	}
@@ -141,7 +141,7 @@ func menuLAT() {
 				good = append(good, x)
 			}
 		}
-		fmt.Println("Аргументы без ошибок (годятся для ЛР3):", good)
+		fmt.Println("Аргументы без ошибок:", good)
 	}
 
 	// по желанию проверяем ещё какое-нибудь соотношение вручную

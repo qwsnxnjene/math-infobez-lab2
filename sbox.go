@@ -54,7 +54,7 @@ func sboxComb(s []int, b int) []int {
 func sboxNonlinearity(s []int, m int) int {
 	best := len(s)
 	for b := 1; b < (1 << m); b++ {
-		nl := nonlinearityFast(sboxComb(s, b))
+		nl := nonlinearity(sboxComb(s, b))
 		if nl < best {
 			best = nl
 		}
@@ -115,9 +115,6 @@ func gfMul(a, b, n int) int {
 }
 
 // powerSbox строит s-бокс x -> x^k в поле GF(2^n) (0 переходит в 0).
-// k=3 и k=5 (функции Голда) при n=5 дают максимальную нелинейность 12.
-// k = 2^n - 2 это инверсия x^(-1) (как в AES при n=8).
-// Биекцией такой s-бокс будет, только если k взаимно просто с 2^n - 1.
 func powerSbox(n, k int) []int {
 	s := make([]int, 1<<n)
 	for x := 1; x < len(s); x++ {
@@ -131,8 +128,7 @@ func powerSbox(n, k int) []int {
 }
 
 // removeFixedPoints прибавляет к выходу s-бокса константу c так, чтобы
-// не осталось неподвижных точек. Прибавление константы к выходу не меняет
-// ни биективность, ни нелинейность (комбинации b*S меняются на константу).
+// не осталось неподвижных точек.
 // Возвращает новый s-бокс и найденную константу; ok=false, если не вышло.
 func removeFixedPoints(s []int) ([]int, int, bool) {
 	for c := 0; c < len(s); c++ {
@@ -169,6 +165,28 @@ func sboxCost(s []int, n int) int {
 		}
 	}
 	return total + fixedPenalty*len(fixedPoints(s))
+}
+
+// walsh - преобразование Уолша-Адамара.
+// w[a] = сумма по x от (-1)^(f(x) + a*x).
+// Чем больше |w[a]|, тем ближе f к аффинной функции с коэффициентами a.
+func walsh(f []int) []int {
+	w := make([]int, len(f))
+	for i := range f {
+		w[i] = 1 - 2*f[i] // 0 -> 1, 1 -> -1
+	}
+	// "бабочки", как в быстром преобразовании Фурье
+	for step := 1; step < len(w); step *= 2 {
+		for i := 0; i < len(w); i += 2 * step {
+			for j := i; j < i+step; j++ {
+				u := w[j]
+				v := w[j+step]
+				w[j] = u + v
+				w[j+step] = u - v
+			}
+		}
+	}
+	return w
 }
 
 // randomSearch ищет s-бокс (перестановку без неподвижных точек) с большой
@@ -261,15 +279,12 @@ func printSboxInfo(s []int, n, m int) {
 
 	fmt.Println("\nНелинейность линейных комбинаций:")
 	for b := 1; b < (1 << m); b++ {
-		nl := nonlinearityFast(sboxComb(s, b))
+		nl := nonlinearity(sboxComb(s, b))
 		fmt.Printf("  %-14s NL = %d\n", combName(b, m), nl)
 	}
 
 	fmt.Println()
 	fmt.Println("Нелинейность s-бокса (минимум по комбинациям):", sboxNonlinearity(s, m))
-	if n%2 == 0 {
-		fmt.Println("Максимально возможная (bent-граница)          :", bentMaxNL(n))
-	}
 
 	// биекция и неподвижные точки имеют смысл только при n = m
 	if n == m {
@@ -287,45 +302,45 @@ func printSboxInfo(s []int, n, m int) {
 	}
 }
 
-// пункт 5: нелинейность заданного s-бокса
-func menuSbox() {
-	fmt.Println("\n--- Нелинейность s-бокса ---")
+// readSbox спрашивает, как задан s-бокс, и считывает его.
+// Возвращает таблицу подстановки s, число входных бит n и выходных m.
+// ok = false, если ввод оказался неправильным.
+func readSbox() (s []int, n, m int, ok bool) {
 	fmt.Println("Как задан s-бокс?")
 	fmt.Println("  1. Таблицей подстановки: S(0), S(1), S(2), ...")
 	fmt.Println("  2. Базисными функциями Y0, Y1, ... (таблицы истинности)")
 	fmt.Println("  3. Вариант 14 (F1..F4 из задания)")
+	fmt.Println("  4. Пример 3x3 из пособия (ЛР2, таблицы 8-10)")
+	fmt.Println("  5. Пример 4x4 из пособия (ЛР3)")
 	mode := readLine("Выбор: ")
-
-	var s []int
-	var n, m int
 
 	switch mode {
 	case "1":
 		s = parseInts(readLine("S: "))
 		if !isPowerOfTwo(len(s)) {
 			fmt.Println("Количество значений должно быть степенью двойки.")
-			return
+			return nil, 0, 0, false
 		}
 		n = numVars(s)
 		m = n // для таблицы подстановки считаем, что вход и выход одной длины
 		for _, v := range s {
 			if v >= len(s) {
 				fmt.Printf("Значения должны быть от 0 до %d.\n", len(s)-1)
-				return
+				return nil, 0, 0, false
 			}
 		}
 	case "2":
 		m = readInt("Сколько базисных функций (m)? ")
 		if m < 1 || m > 8 {
 			fmt.Println("m должно быть от 1 до 8.")
-			return
+			return nil, 0, 0, false
 		}
 		var basis [][]int
 		for j := 0; j < m; j++ {
 			basis = append(basis, readFunc(fmt.Sprintf("Y%d: ", j)))
 			if len(basis[j]) != len(basis[0]) {
 				fmt.Println("Все функции должны быть одинаковой длины.")
-				return
+				return nil, 0, 0, false
 			}
 		}
 		s = sboxFromBasis(basis)
@@ -334,11 +349,26 @@ func menuSbox() {
 		s = sboxFromBasis(variant14)
 		n = numVars(s)
 		m = len(variant14)
+	case "4":
+		s = manualSbox3
+		n, m = 3, 3
+	case "5":
+		s = sboxFromBasis(manualBasis4)
+		n, m = 4, 4
 	default:
 		fmt.Println("Нет такого варианта.")
+		return nil, 0, 0, false
+	}
+	return s, n, m, true
+}
+
+// пункт 5: нелинейность заданного s-бокса
+func menuSbox() {
+	fmt.Println("\n--- Нелинейность s-бокса ---")
+	s, n, m, ok := readSbox()
+	if !ok {
 		return
 	}
-
 	fmt.Printf("\ns-бокс (%d, %d)\n", n, m)
 	printSboxInfo(s, n, m)
 }
@@ -366,12 +396,11 @@ func menuGenerate() {
 			fmt.Println("Не нашлось подходящей перестановки, попробуйте ещё раз.")
 			return
 		}
-		fmt.Println("\nЛучший найденный s-бокс. Случайный поиск обычно упирается в NL = 10,")
-		fmt.Println("а NL = 12 достигается только специальными конструкциями (способ 2).")
+
 		printSboxInfo(s, n, n)
 
 	case "2":
-		k := readInt("Степень k (3 или 5 дают NL = 12, 30 это инверсия): ")
+		k := readInt("Степень k (3 или 5 работают лучше): ")
 		if k < 1 {
 			fmt.Println("Нужно k >= 1.")
 			return

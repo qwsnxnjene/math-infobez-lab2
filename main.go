@@ -105,14 +105,13 @@ func menuNonlinearity() {
 	} else {
 		fmt.Println("NL (перебор): пропущен, функция слишком большая")
 	}
-	nl := nonlinearityFast(f)
-	fmt.Println("NL (Уолш-Адамар)             :", nl)
-	fmt.Println("NL(f + 1)                    :", nonlinearityFast(addOne(f)), "(должна быть такой же)")
+
+	fmt.Println("NL(f + 1)                    :", nonlinearity(addOne(f)), "(должна быть такой же)")
 
 	if n%2 == 0 {
 		max := bentMaxNL(n)
 		fmt.Println("Максимум для чётного n       :", max)
-		if nl == max {
+		if nonlinearity(f) == max {
 			fmt.Println("Функция bent!")
 		}
 	}
@@ -121,9 +120,9 @@ func menuNonlinearity() {
 // пункт 3: построение bent-функции
 func menuBent() {
 	fmt.Println("\n--- Построение bent-функции ---")
-	n := readInt("Число переменных n (чётное, от 2 до 16): ")
+	n := readInt("Число переменных n (чётное, от 2 до 6): ")
 	if n < 2 || n > 16 || n%2 != 0 {
-		fmt.Println("Нужно чётное n от 2 до 16.")
+		fmt.Println("Нужно чётное n от 2 до 6.")
 		return
 	}
 	f := bentFunc(n)
@@ -144,7 +143,7 @@ func menuBent() {
 	} else {
 		fmt.Printf("Таблица истинности из %d значений не выводится.\n", len(f))
 	}
-	fmt.Println("NL (Уолш-Адамар):", nonlinearityFast(f))
+
 	if len(f) <= 1024 {
 		fmt.Println("NL (перебор)    :", nonlinearity(f))
 	}
@@ -154,14 +153,13 @@ func menuBent() {
 func main() {
 	for {
 		fmt.Println()
-		fmt.Println("===== ЛР1: s-боксы и линейная аппроксимация =====")
+		fmt.Println("===== ЛР2: s-боксы и линейная аппроксимация =====")
 		fmt.Println("1. Расстояние Хэмминга между двумя функциями")
 		fmt.Println("2. Нелинейность булевой функции")
 		fmt.Println("3. Построить bent-функцию")
-		fmt.Println("4. Контрольные примеры из пособия")
-		fmt.Println("5. Нелинейность s-бокса (в том числе вариант 14)")
-		fmt.Println("6. Сгенерировать s-бокс размерности 5")
-		fmt.Println("7. Таблица линейной аппроксимации, система уравнений, Err")
+		fmt.Println("4. Нелинейность s-бокса")
+		fmt.Println("5. Сгенерировать s-бокс размерности 5")
+		fmt.Println("6. Таблица линейной аппроксимации, система уравнений, Err")
 		fmt.Println("0. Выход")
 
 		choice := readLine("Выберите пункт: ")
@@ -173,12 +171,10 @@ func main() {
 		case "3":
 			menuBent()
 		case "4":
-			runChecks()
-		case "5":
 			menuSbox()
-		case "6":
+		case "5":
 			menuGenerate()
-		case "7":
+		case "6":
 			menuLAT()
 		case "0":
 			fmt.Println("До свидания!")
